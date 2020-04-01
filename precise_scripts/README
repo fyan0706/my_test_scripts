@@ -1,0 +1,2 @@
+The precise_coverage.sh is the main test script.
+guest.sh & run.sh will run on the guest.
