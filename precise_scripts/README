@@ -4,6 +4,7 @@ to be done:
 3. 把编译加进去--低优先级
 4. gp的case也加到这里
 5. guest.sh 加一个rmdir -p $simd_dir检测
+6. 完善readme: input output 使用方法.
 
 The precise_coverage.sh is the main test script.
 guest.sh & run.sh will run on the guest.
