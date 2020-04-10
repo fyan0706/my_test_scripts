@@ -1,2 +1,7 @@
 The precise_coverage.sh is the main test script.
 guest.sh & run.sh will run on the guest.
+
+steps:
+1. reboot the system, in order that the snapshot num is start with 1.
+2. mount a harddisk to /data/failed_snapshots
+3. run:  ./precise_coverage.sh -g 192.168.38.72 -s out1.tar.bz2
