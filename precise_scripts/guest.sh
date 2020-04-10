@@ -44,7 +44,7 @@ done
 
 ### run jiye's cases:run.sh
 tar jxvf ${simd}
-simd_dir=binary
+simd_dir=`echo ${simd}|awk -F. '{print $1}'`
 cp run.sh ${simd_dir}
 cd ${simd_dir}
 ./run.sh   # maybe the pwd need be update

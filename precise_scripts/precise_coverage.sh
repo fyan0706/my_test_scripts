@@ -5,16 +5,17 @@
 # description: this script is for running the precise test on guest 
 # and statistic the result.
 # this script need a guest IP: -g
-#		     user: -u
+# the file for the simd cases: -s
 
 USEAGE()
 {
         echo "*****************USEAGE****************"
         echo "USEAGE for this script:"
         echo 'you should can ssh to the guest without passwd'
+	echo 'and please confirm a harddisk is mount on /data/failed_snapshots'
 	echo 'this script need a guest IP: -g'
 	echo '			     user: -u	default:root'
-	echo ' the pwd for the simd cases: -p'
+	echo ' the file for the simd cases: -s, the file should be a .tar.bz2'
         echo "***************************************"
 }
 
@@ -23,7 +24,7 @@ USEAGE()
 #guest_ip=${1:-192.168.38.72}
 guest_ip="192.168.38.72"
 user=root
-while getopts "g:u:s:" arg
+while getopts "g:u:s:h" arg
 do
         case $arg in
                 g)
@@ -46,9 +47,9 @@ do
         esac
 done
 
-### boot the guest	need not for DSC
-#./start_qemu.sh
-#sleep 180   ###maybe 180 is not ok.
+	### boot the guest	need not for DSC
+	#./start_qemu.sh
+	#sleep 180   ###maybe 180 is not ok.
 
 ssh="ssh root@${guest_ip}"
 
@@ -78,6 +79,7 @@ then
 	exit 1
 fi
 
+### scp guanhua & jiye's case to guest
 scp ${simd} ${user}@${guest_ip}:~
 if [ $? -ne 0 ]
 then
@@ -85,16 +87,14 @@ then
 	exit 1
 fi
 
-### scp guanhua & jiye's case to guest
-
 
 ### run the guest.sh on guest
 	### build guanhua's cases: 64/32/module
 	### run guanhua's cases
 	### run jiye's cases:run.sh
 echo "### run all the cases, this may take 2-3 days."
-#                          ${ssh} "~/guest.sh -d ${simd}"
-#                          sleep 30
+${ssh} "~/guest.sh -d ${simd}"
+sleep 10
 #./check.sh > check.log &
 #while [ 1 ]
 #do
@@ -134,7 +134,7 @@ cd $snapshots_dir
 start_num=`ls -l $snapshots_dir|grep dump|head -1|awk '{print $NF}'|awk -F_ '{print $2}'|sed -r 's/0*([0-9])/\1/'`
 end_num=`ls -l $snapshots_dir|grep dump|tail -1|awk '{print $NF}'|awk -F_ '{print $2}'|sed -r 's/0*([0-9])/\1/'`
 #for i in {1..${num}}
-echo "num is ${start_num} ${end_num}"
+#echo "num is ${start_num} ${end_num}"
 for ((i=${start_num};i<=${end_num};++i))
 do
         timeout 10 remu --mode mtr_offline --path $snapshots_dir --id $i --inst=on >> remu.log
@@ -188,7 +188,7 @@ do
 	# paste result.log ${num} > result.log #can not get the needed result
 done
 
-paste result_tmp.log *.cnt.ins.num > result.log #result.log include the opcode and all the num
+paste result_tmp.log *.cnt.ins.num > result.log #result.log include the opcode name and all the num
 paste *.cnt.ins.num > result_num.log #result_num only include all the number
 not_covered=`cat result_num.log |grep -v [1-9]|wc -l`
 rm *.cnt.ins.num result_tmp.log
@@ -231,7 +231,8 @@ new_snapshots=/data/snapshots_${time_stamp}
 new_ins=/data/ins_${time_stamp}
 new_log=/data/log_${time_stamp}
 mkdir ${new_snapshots} ${new_ins} ${new_log}
-rm -rf ^dump*1$
+sleep 30 #wait for the dump file compressed
+#rm -rf ^dump*1$
 mv ${snapshots_dir}/*.gz ${new_snapshots}
 mv ${snapshots_dir}/*.ins ${new_ins}
 mv ${snapshots_dir}/* ${new_log} 
