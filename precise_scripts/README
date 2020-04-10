@@ -6,4 +6,4 @@ steps:
   start a vncserver to run the #3 script on it.
   shutdown the iptables: /sbin/iptables -I INPUT 1 -p TCP --dport 5901:5910 -j ACCEPT
 2. mount a harddisk to /data/failed_snapshots
-3. run:  ./precise_coverage.sh -g 192.168.38.72 -s out1.tar.bz2
+3. run:  ./precise_coverage.sh -g 192.168.38.72 -s out1.tar.bz2|tee precise_time.log
