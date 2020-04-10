@@ -1,3 +1,10 @@
+to be done:
+1. 搞成函数
+2. 看还有什么参数要处理
+3. 把编译加进去--低优先级
+4. gp的case也加到这里
+5. guest.sh 加一个rmdir -p $simd_dir检测
+
 The precise_coverage.sh is the main test script.
 guest.sh & run.sh will run on the guest.
 
@@ -7,3 +14,4 @@ steps:
   shutdown the iptables: /sbin/iptables -I INPUT 1 -p TCP --dport 5901:5910 -j ACCEPT
 2. mount a harddisk to /data/failed_snapshots
 3. run:  ./precise_coverage.sh -g 192.168.38.72 -s out1.tar.bz2|tee precise_time.log
+
