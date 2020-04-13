@@ -64,6 +64,8 @@ function onCtrlC ()
 }	
 
 ### cp the guest.sh to guest and confirm you can ssh to the guest without passwd
+scp_to_guest()
+{
 echo "### cp the files to guest."
 scp guest.sh ${user}@${guest_ip}:~
 if [ $? -ne 0 ]
@@ -86,15 +88,19 @@ then
 	echo "please check if you can ssh to ${guest_ip} without passwd"
 	exit 1
 fi
+}
 
 
 ### run the guest.sh on guest
 	### build guanhua's cases: 64/32/module
 	### run guanhua's cases
 	### run jiye's cases:run.sh
+run_on_guest()
+{
 echo "### run all the cases, this may take 2-3 days."
 ${ssh} "~/guest.sh -d ${simd}"
 sleep 10
+}
 #./check.sh > check.log &
 #while [ 1 ]
 #do
@@ -125,6 +131,8 @@ snapshots_dir="/data/failed_snapshots/"
 
 
 ### replay the snapshots: replay.sh
+replay()
+{
 echo "### replay the snapshots, this may take several hours."
 rm -rf replay_hang.log
 touch replay_hang.log
@@ -144,6 +152,7 @@ do
         fi
         echo "we just run $i dump file" >> remu.log
 done
+}
 
 #cp replay.sh $snapshots_dir/
 #$snapshots_dir/replay.sh
@@ -172,6 +181,8 @@ done
 #awk '{b[NR]=$0; for(i=2;i<=NF;i++)a[NR]+=$i;}END{for(i=1;i<=NR;i++) print b[i]"\t"a[i]}' inputfile
 #https://www.cnblogs.com/paul8339/p/9054409.html
 #======================================================
+coverage()
+{
 echo "### now calculate the coverage."
 awk -F: '{print $1}' ${start_num}.cnt.ins > result_tmp.log #result_tmp.log only include the opcode name
 sed -i '1d' result_tmp.log
@@ -196,8 +207,10 @@ echo "${not_covered} instructions is not covered"
 #coverage=`echo "scale=4; (3001-${not_covered})*100/3001"|bc`
 coverage=`echo "scale=4; (2722-${not_covered}+279)*100/2722"|bc`
 echo "coverage is ${coverage}%"
-
+}
 ### create the list for if the opcode is covered: detailed.sh
+create_excel()
+{
 echo "### now generate the detailed list of the coverage."
 file=result_num.log
 rm -rf detailed.log
@@ -215,8 +228,11 @@ do
 done
 
 cd
+}
 ### then we need compare the 2 detailed result manually
 
+clear_bak()
+{
 ### clear the host
 echo "### clear the host and guest."
 rm -rf ${snapshots_dir}/result.log ${snapshots_dir}/result_num.log
@@ -238,3 +254,11 @@ mv ${snapshots_dir}/*.ins ${new_ins}
 mv ${snapshots_dir}/* ${new_log} 
 
 echo "### done ###"
+}
+
+scp_to_guest
+run_on_guest
+replay
+coverage
+create_excel
+clear_bak
