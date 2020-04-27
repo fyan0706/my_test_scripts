@@ -1,0 +1,186 @@
+#!/usr/bin/bash
+
+#set -x
+typeset input=$1
+typeset instrtype=${input%%.txt*}
+instrtype=${instrtype##*/}
+typeset goodlist=./out/$instrtype/support_list
+typeset badlist=./out/$instrtype/unsupport_list
+
+typeset -i good=0
+typeset ret_var="dst = "
+typeset ret_type
+typeset instr
+typeset params
+typeset -i para_num=0
+
+typeset outc
+
+mkdir -p out/$instrtype
+rm -f $goodlist
+rm -f $badlist
+## Analyze instruction file
+## get instruction name and para type
+while read line; do
+    good=1
+    para_num=0
+    ret_type=""
+    ret_var="dst = "
+    dst_var_define=""
+    instr=""
+    params=""
+    dst_params=""
+
+    line=" $line"
+    #ret_type=${line%% _[m,M,s,c,k,l]*}
+    ret_type=${line%% _[a-zA-Z]*}
+    instr=${line#*${ret_type} }
+    instr=$(echo "${instr%%(*}"  | sed 's/[ \t]*$//g' | sed 's/^[ \t]*//g')
+
+    ret_type=$(echo "${ret_type}" | sed 's/[ \t]*$//g' | sed 's/^[ \t]*//g')
+    if [[ -z ${ret_type} ]]; then
+        ret_type=void
+    fi
+
+    if [[ ${ret_type} == "void" ]]; then
+        ret_var=""
+    else
+        ret_var="ret = "
+        dst_var_define="    ${ret_type} ret;\n"
+    fi
+    echo "=================="
+    echo "Test instruction $instr, return type is $ret_type"
+    outc=./out/$instrtype/test--${instr}.c
+    params=${line##*\(}
+    params=${params%%\)*}
+    #echo "params are $params"
+    params=$(echo "${params}" | sed 's/[ \t]*$//g' | sed 's/^[ \t]*//g')
+    if [[ -z ${params} ]]; then
+        params=void
+    fi
+
+    if [[ "$params" == "void" ]]; then
+        dst_params=""
+        #echo "para type is int"
+        #good=0
+    else
+    oldIFS=$IFS
+    IFS=','
+    for param in $params; do
+        (( para_num++ ))
+        loaddata=""
+        temp=$(echo "$param" | awk '{$NF="";print}' | sed 's/[ \t]*$//g' | sed 's/^[ \t]*//g')
+        if  echo "$temp" | grep -q "__m128i" ; then
+            loaddata="_mm_loadu_si128(data${para_num})"
+            dst_var_define="$dst_var_define    float data${para_num}[4] __attribute__ ((aligned (64))) = {2,4,6,8};\n"
+        elif  echo "$temp" | grep -q "__m128d" ; then
+            loaddata="_mm_load_pd(data${para_num})"
+            dst_var_define="$dst_var_define    float data${para_num}[4] __attribute__ ((aligned (64))) = {2,4,6,8};\n"
+        elif  echo "$temp" | grep -q "__m128" ; then
+            loaddata="_mm_loadu_ps(data${para_num})"
+            dst_var_define="$dst_var_define    float data${para_num}[4] __attribute__ ((aligned (64))) = {2,4,6,8};\n"
+        elif  echo "$temp" | grep -q "__m512d" ; then
+            loaddata="_mm512_load_pd(data${para_num})"
+            dst_var_define="$dst_var_define    double data${para_num}[8] __attribute__ ((aligned (64))) = {10,20,30,40,50,60,70,80};\n"
+        elif  echo "$temp" | grep -q "__m512i" ; then
+            loaddata="_mm512_load_epi32(data${para_num})"
+            dst_var_define="$dst_var_define    unsigned int data${para_num}[16] __attribute__ ((aligned (64))) = {1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31};\n"
+        elif  echo "$temp" | grep -q "__m512" ; then
+            loaddata="_mm512_load_ps(data${para_num})"
+            dst_var_define="$dst_var_define    float data${para_num}[16] __attribute__ ((aligned (64))) = {0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30};\n"
+        elif  echo "$temp" | grep -q "__m256d" ; then
+            loaddata="_mm256_load_pd(data${para_num})"
+            dst_var_define="$dst_var_define    double data${para_num}[4]__attribute__ ((aligned (64))) = {2,4,6,8};\n"
+        elif  echo "$temp" | grep -q "__m256i" ; then
+            loaddata="_mm256_loadu_si256(data${para_num})"
+            dst_var_define="$dst_var_define    int data${para_num}[8] __attribute__ ((aligned (64))) = {2,4,6,8,10,12,14,16};\n"
+        elif  echo "$temp" | grep -q "__m256" ; then
+            loaddata="_mm256_load_ps(data${para_num})"
+            dst_var_define="$dst_var_define    float data${para_num}[8] __attribute__ ((aligned (64))) = {2,4,6,8,10,12,14,16};\n"
+        elif  echo "$temp" | grep -q "__m64" ; then
+            loaddata="_m_from_int64(data${para_num})"
+            dst_var_define="$dst_var_define    char data${para_num} = 0x55;\n"
+            #dst_var_define="$dst_var_define    $temp var${para_num}=_m_from_int64(data${para_num});\n"
+        else
+            loaddata="0x44"
+        fi
+
+        if  echo "$temp" | grep -q '*' ; then
+            if echo "$temp" | grep -q 'void*' ; then
+                tempa='int'
+            else
+                tempa="$temp "
+                tempa=${tempa%\**}
+            fi
+            dst_var_define="$dst_var_define    $tempa var_${para_num}[500]  __attribute__ ((aligned (64)));\n"
+            dst_var_define="$dst_var_define    $temp var${para_num} = var_${para_num};\n"
+        else
+            dst_var_define="$dst_var_define    $temp var${para_num} = $loaddata;\n"
+            if [[ "$loaddata" == "0x44" ]]; then
+                loaddata="1"
+            fi
+        fi
+
+        #eval "para${para_num}_type=\"$temp\""
+        if (( $para_num == 1 )); then
+            if echo "$param" | grep -q 'int sae' ; then
+                dst_params="_MM_FROUND_NO_EXC"
+            elif echo "$param" | grep -q 'rounding' ; then
+                dst_params="_MM_FROUND_TO_NEAREST_INT |_MM_FROUND_NO_EXC"
+            elif [[ "$loaddata" == "1" ]]; then
+                dst_params="$loaddata"
+            else
+                dst_params="var${para_num}"
+            fi
+        else
+            if echo "$param" | grep -q 'int sae' ; then
+                dst_params="${dst_params}, _MM_FROUND_NO_EXC"
+            elif echo "$param" | grep -q 'rounding' ; then
+                dst_params="${dst_params}, _MM_FROUND_TO_NEAREST_INT |_MM_FROUND_NO_EXC"
+            elif [[ "$loaddata" == "1" ]]; then
+                dst_params="${dst_params}, $loaddata"
+            else
+                dst_params="${dst_params}, var${para_num}"
+            fi
+        fi
+    done
+
+    IFS=$oldIFS
+    fi
+
+    #if (( $para_num != 2 )); then
+    #    good=0
+    #fi
+    #echo "para_num=$para_num, para1_type=$para1_type, para2_type=$para2_type, para3_type=$para3_type"
+    echo "=================="
+    if (( $good == 0 )); then
+        echo "$ret_type $instr ($params)" >>$badlist
+        continue
+    else
+        echo "$ret_type $instr ($params)" >>$goodlist
+    fi
+
+
+    echo "#include <immintrin.h>" > $outc
+    echo "#include <xmmintrin.h>" >> $outc
+    echo "#include <emmintrin.h>" >> $outc
+    echo "#include <pmmintrin.h>" >> $outc
+    echo "#include <tmmintrin.h>" >> $outc
+    echo "#include <smmintrin.h>" >> $outc
+    echo "#include <nmmintrin.h>" >> $outc
+    echo "#include <stdio.h>" >> $outc
+    echo "#include <mmintrin.h>" >>$outc
+    echo "#include \"intrinsic-typedef.h\"" >>$outc
+    echo "" >>$outc
+    echo "" >>$outc
+    echo "" >>$outc
+    echo "/* Test func: $line */" >> $outc
+    echo "int test()" >>$outc
+    echo "{" >>$outc
+    echo -e "${dst_var_define}" >>$outc
+
+    echo "" >>$outc
+    echo "" >>$outc
+    echo "    ${ret_var}$instr(${dst_params});" >>$outc
+    echo "}" >>$outc
+done <$input

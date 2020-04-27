@@ -1,0 +1,6 @@
+#set args -P2 -t -0
+#set args -P1 -t -0 -z 20 -i e00000000000000000000000000000 -e ffffffffffffffffffffffffffffff
+#set args -P1 -t -0 -j 2 >a 2>&1
+#set args -P1 -t -0 -j 1 -l 2 -i 3333333333333333 -e 3444444444444444
+set args -P1 -t -0 -i e00000000000000000000000000000 -e 100000000000000000000000000000
+set follow-fork-mode parent
